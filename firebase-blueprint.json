@@ -1,0 +1,18 @@
+{
+  "entities": {
+    "electricity_bills": {
+      "title": "Electricity Bills",
+      "description": "Collection storing historical electricity bill records and meter readings",
+      "properties": {
+        "id": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "periodName": { "type": "string" },
+        "config": { "type": "object" },
+        "residents": { "type": "array" },
+        "subMeters": { "type": "array" },
+        "result": { "type": "object" }
+      },
+      "required": ["id", "createdAt", "periodName", "config", "residents", "subMeters"]
+    }
+  }
+}

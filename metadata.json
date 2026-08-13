@@ -1,0 +1,6 @@
+{
+  "name": "電費分攤計算系統",
+  "description": "支援台電帳單抄表分攤、獨立冷氣分電表計算、公電自動平攤與成員費用明細導出的智慧電費計算工具。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
