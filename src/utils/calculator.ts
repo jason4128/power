@@ -1,265 +1,230 @@
-import { BillConfig, Resident, SubMeter, CalculationResult, ResidentResult, AcShareItem } from '../types';
+import { BillConfig, Resident, SubMeter, CalculationResult, ResidentResult } from '../types';
 
-export function calculateSubMeterKwh(meter: SubMeter): number {
-  if (meter.inputMode === 'direct') {
-    return Math.max(0, meter.directKwh || 0);
-  } else {
-    const diff = (meter.currentReading || 0) - (meter.previousReading || 0);
-    return Math.max(0, diff);
-  }
+export function getPromptExampleData() {
+  return {
+    config: {
+      title: '2026年 1-3月 電費帳單',
+      year: 2026,
+      monthPeriod: '1-3月',
+      totalAmount: 2000,
+      totalKwh: 500,
+      roundingMode: 'round',
+      autoBalanceDifference: true,
+    } as BillConfig,
+    residents: [
+      { id: 'res-1', name: '涵', color: '#3b82f6', weight: 1 },
+      { id: 'res-2', name: '宏', color: '#10b981', weight: 1 },
+      { id: 'res-3', name: '濰', color: '#f59e0b', weight: 1 },
+    ] as Resident[],
+    subMeters: [
+      {
+        id: 'meter-1',
+        name: '客廳冷氣(涵 & 宏 共有)',
+        inputMode: 'readings',
+        previousReading: 100,
+        currentReading: 200,
+        directKwh: 0,
+        assignedResidentIds: ['res-1', 'res-2'],
+      },
+      {
+        id: 'meter-2',
+        name: '房間冷氣(涵 & 宏 共有)',
+        inputMode: 'readings',
+        previousReading: 50,
+        currentReading: 231,
+        directKwh: 0,
+        assignedResidentIds: ['res-1', 'res-2'],
+      },
+      {
+        id: 'meter-3',
+        name: '客廳冷氣(濰)',
+        inputMode: 'readings',
+        previousReading: 0,
+        currentReading: 95,
+        directKwh: 0,
+        assignedResidentIds: ['res-3'],
+      },
+    ] as SubMeter[],
+  };
 }
 
-export function calculateBill(
-  config: BillConfig,
-  residents: Resident[],
-  subMeters: SubMeter[]
-): CalculationResult {
+export function calculateBill(config: BillConfig, residents: Resident[], subMeters: SubMeter[]): CalculationResult {
   const { totalAmount, totalKwh, roundingMode, autoBalanceDifference } = config;
 
-  // Calculate unit price per kWh
-  const unitPrice = totalKwh > 0 ? totalAmount / totalKwh : 0;
+  if (totalKwh <= 0 || totalAmount <= 0) {
+    return createEmptyResult(residents);
+  }
 
-  // Calculate each sub-meter's consumption
-  const meterKwhMap: Record<string, number> = {};
+  const unitPrice = totalAmount / totalKwh;
+
   let totalAcKwh = 0;
+  let totalAcCost = 0;
+  
+  // Create resident map
+  const residentMap = new Map<string, ResidentResult>();
+  let totalWeight = 0;
+  for (const r of residents) {
+    totalWeight += r.weight;
+    residentMap.set(r.id, {
+      residentId: r.id,
+      residentName: r.name,
+      residentColor: r.color,
+      commonKwh: 0,
+      commonCost: 0,
+      acBreakdown: [],
+      totalAcKwh: 0,
+      totalAcCost: 0,
+      totalKwh: 0,
+      rawCost: 0,
+      finalCost: 0,
+      percentageOfTotal: 0,
+    });
+  }
 
-  subMeters.forEach((meter) => {
-    const kwh = calculateSubMeterKwh(meter);
-    meterKwhMap[meter.id] = kwh;
+  // Calculate ACs
+  for (const m of subMeters) {
+    const kwh = m.inputMode === 'readings' ? Math.max(0, m.currentReading - m.previousReading) : m.directKwh;
+    if (kwh <= 0) continue;
+    
     totalAcKwh += kwh;
-  });
+    const cost = kwh * unitPrice;
+    totalAcCost += cost;
 
-  const totalAcCost = totalAcKwh * unitPrice;
-
-  // Calculate common / public electricity
-  const commonKwh = Math.max(0, totalKwh - totalAcKwh);
-  const commonCost = commonKwh * unitPrice;
-
-  // Total resident weight for public electricity
-  const totalResidentWeight = residents.reduce(
-    (sum, r) => sum + Math.max(0, r.weight || 1),
-    0
-  );
-
-  // Initialize resident result structure
-  const rawResults: ResidentResult[] = residents.map((resident) => {
-    const rWeight = Math.max(0, resident.weight || 1);
-    const weightRatio = totalResidentWeight > 0 ? rWeight / totalResidentWeight : 0;
-
-    // Public electricity share for this resident
-    const rCommonKwh = commonKwh * weightRatio;
-    const rCommonCost = commonCost * weightRatio;
-
-    // AC shares for this resident
-    const acBreakdown: AcShareItem[] = [];
-    let rAcKwhSum = 0;
-    let rAcCostSum = 0;
-
-    subMeters.forEach((meter) => {
-      if (meter.assignedResidentIds.includes(resident.id)) {
-        const assignedCount = meter.assignedResidentIds.length;
-        if (assignedCount > 0) {
-          const meterKwh = meterKwhMap[meter.id] || 0;
-          const residentMeterKwh = meterKwh / assignedCount;
-          const residentMeterCost = residentMeterKwh * unitPrice;
-
-          acBreakdown.push({
-            meterId: meter.id,
-            meterName: meter.name,
-            meterTotalKwh: meterKwh,
+    // Distribute among assigned residents
+    const assignedCount = m.assignedResidentIds.length;
+    if (assignedCount > 0) {
+      const shareKwh = kwh / assignedCount;
+      const shareCost = cost / assignedCount;
+      for (const rid of m.assignedResidentIds) {
+        const rr = residentMap.get(rid);
+        if (rr) {
+          rr.acBreakdown.push({
+            meterId: m.id,
+            meterName: m.name,
+            meterTotalKwh: kwh,
             sharedResidentCount: assignedCount,
-            residentKwh: residentMeterKwh,
-            residentCost: residentMeterCost,
+            residentKwh: shareKwh,
+            residentCost: shareCost
           });
-
-          rAcKwhSum += residentMeterKwh;
-          rAcCostSum += residentMeterCost;
+          rr.totalAcKwh += shareKwh;
+          rr.totalAcCost += shareCost;
         }
       }
-    });
-
-    const rTotalKwh = rCommonKwh + rAcKwhSum;
-    const rawCost = rCommonCost + rAcCostSum;
-
-    return {
-      residentId: resident.id,
-      residentName: resident.name,
-      residentColor: resident.color,
-      commonKwh: rCommonKwh,
-      commonCost: rCommonCost,
-      acBreakdown,
-      totalAcKwh: rAcKwhSum,
-      totalAcCost: rAcCostSum,
-      totalKwh: rTotalKwh,
-      rawCost: rawCost,
-      finalCost: rawCost, // Will be rounded below
-      percentageOfTotal: totalAmount > 0 ? (rawCost / totalAmount) * 100 : 0,
-    };
-  });
-
-  // Apply rounding mode
-  rawResults.forEach((r) => {
-    switch (roundingMode) {
-      case 'exact':
-        r.finalCost = Math.round(r.rawCost * 100) / 100; // 2 decimal places
-        break;
-      case 'ceil':
-        r.finalCost = Math.ceil(r.rawCost);
-        break;
-      case 'floor':
-        r.finalCost = Math.floor(r.rawCost);
-        break;
-      case 'round':
-      default:
-        r.finalCost = Math.round(r.rawCost);
-        break;
     }
-  });
+  }
 
-  // Calculate sum of rounded costs
-  let totalAllocatedCost = rawResults.reduce((sum, r) => sum + r.finalCost, 0);
+  const commonKwh = Math.max(0, totalKwh - totalAcKwh);
+  const commonCost = Math.max(0, totalAmount - totalAcCost);
+  
+  // Distribute common
+  let totalAllocatedCost = 0;
+  const residentResults = Array.from(residentMap.values());
+  for (const rr of residentResults) {
+    const r = residents.find(res => res.id === rr.residentId);
+    if (!r) continue;
+    
+    const weightFraction = totalWeight > 0 ? (r.weight / totalWeight) : 0;
+    rr.commonKwh = commonKwh * weightFraction;
+    rr.commonCost = commonCost * weightFraction;
+    
+    rr.totalKwh = rr.totalAcKwh + rr.commonKwh;
+    rr.rawCost = rr.totalAcCost + rr.commonCost;
+    
+    if (roundingMode === 'round') {
+      rr.finalCost = Math.round(rr.rawCost);
+    } else if (roundingMode === 'ceil') {
+      rr.finalCost = Math.ceil(rr.rawCost);
+    } else if (roundingMode === 'floor') {
+      rr.finalCost = Math.floor(rr.rawCost);
+    } else {
+      rr.finalCost = Number(rr.rawCost.toFixed(2));
+    }
+    
+    totalAllocatedCost += rr.finalCost;
+  }
+  
   let roundingVariance = totalAmount - totalAllocatedCost;
-
-  // If auto-balance is enabled and there is an integer rounding variance
-  if (
-    autoBalanceDifference &&
-    roundingMode !== 'exact' &&
-    Math.abs(roundingVariance) > 0 &&
-    rawResults.length > 0
-  ) {
-    // Sort residents by highest kWh or highest remainder to adjust 1-2 dollars fairly
-    const sorted = [...rawResults].sort((a, b) => b.totalKwh - a.totalKwh);
-    const diffToAdjust = Math.round(roundingVariance);
-
-    if (diffToAdjust !== 0) {
-      // Add diffToAdjust to the highest consumer
-      const target = sorted[0];
-      target.finalCost += diffToAdjust;
-      totalAllocatedCost += diffToAdjust;
+  
+  // autoBalanceDifference
+  if (autoBalanceDifference && roundingMode !== 'exact' && Math.abs(roundingVariance) > 0 && Math.abs(roundingVariance) <= residentResults.length) {
+    const diff = Math.round(roundingVariance);
+    if (diff !== 0) {
+      const sign = diff > 0 ? 1 : -1;
+      const count = Math.abs(diff);
+      
+      const sorted = [...residentResults].sort((a, b) => {
+         const fracA = a.rawCost - Math.floor(a.rawCost);
+         const fracB = b.rawCost - Math.floor(b.rawCost);
+         return sign > 0 ? fracB - fracA : fracA - fracB;
+      });
+      
+      for(let i=0; i<count; i++) {
+        if(i < sorted.length) {
+           sorted[i].finalCost += sign;
+           totalAllocatedCost += sign;
+        }
+      }
       roundingVariance = totalAmount - totalAllocatedCost;
     }
   }
+  
+  for(const rr of residentResults) {
+    rr.percentageOfTotal = totalAmount > 0 ? (rr.finalCost / totalAmount) * 100 : 0;
+  }
 
   return {
-    unitPrice,
+    unitPrice: Number(unitPrice.toFixed(4)),
     totalAcKwh,
     totalAcCost,
     commonKwh,
     commonCost,
     totalAllocatedCost,
     roundingVariance,
-    residentResults: rawResults,
+    residentResults
   };
 }
 
-/**
- * Generates formatted LINE / message text summary for easy copy-pasting
- */
-export function generateLineTextSummary(
-  config: BillConfig,
-  result: CalculationResult
-): string {
-  const formatCurrency = (val: number) =>
-    config.roundingMode === 'exact'
-      ? `$${val.toFixed(2)}`
-      : `$${Math.round(val)}`;
+function createEmptyResult(residents: Resident[]): CalculationResult {
+  return {
+    unitPrice: 0,
+    totalAcKwh: 0,
+    totalAcCost: 0,
+    commonKwh: 0,
+    commonCost: 0,
+    totalAllocatedCost: 0,
+    roundingVariance: 0,
+    residentResults: residents.map(r => ({
+      residentId: r.id,
+      residentName: r.name,
+      residentColor: r.color,
+      commonKwh: 0,
+      commonCost: 0,
+      acBreakdown: [],
+      totalAcKwh: 0,
+      totalAcCost: 0,
+      totalKwh: 0,
+      rawCost: 0,
+      finalCost: 0,
+      percentageOfTotal: 0,
+    }))
+  };
+}
 
-  const lines: string[] = [];
-  lines.push(`⚡ 【${config.title || '本期電費分攤明細'}】`);
-  lines.push(`---------------------------------`);
-  lines.push(`🧾 帳單總金額：$${config.totalAmount.toLocaleString()} 元`);
-  lines.push(`📊 帳單總度數：${config.totalKwh} 度`);
-  lines.push(`💡 平均每度電：$${result.unitPrice.toFixed(2)} 元/度`);
-  lines.push(
-    `🏢 公用/基礎電費：${result.commonKwh.toFixed(1)} 度 ($${result.commonCost.toFixed(2)})`
-  );
-  lines.push(`---------------------------------`);
-
-  result.residentResults.forEach((res) => {
-    lines.push(`👤 【${res.residentName}】 應繳總額：${formatCurrency(res.finalCost)} 元`);
-    lines.push(`  - 個人總用電：${res.totalKwh.toFixed(1)} 度`);
-    lines.push(
-      `  - 公電分攤：${res.commonKwh.toFixed(1)} 度 (${formatCurrency(res.commonCost)})`
-    );
-
-    if (res.acBreakdown.length > 0) {
-      res.acBreakdown.forEach((ac) => {
-        const shareNote =
-          ac.sharedResidentCount > 1 ? ` (${ac.sharedResidentCount}人均攤)` : '';
-        lines.push(
-          `  - ${ac.meterName}${shareNote}：${ac.residentKwh.toFixed(1)}度 (${formatCurrency(ac.residentCost)})`
-        );
-      });
-    } else {
-      lines.push(`  - 獨立冷氣：無使用或未配置`);
-    }
-    lines.push('');
-  });
-
-  lines.push(`---------------------------------`);
-  lines.push(`✅ 應繳金額總計核對：$${result.totalAllocatedCost.toLocaleString()} 元`);
-  if (Math.abs(result.roundingVariance) > 0.01) {
-    lines.push(`⚠️ 四捨五入微調差額：$${result.roundingVariance.toFixed(2)} 元`);
+export function calculateSubMeterKwh(meter: SubMeter): number {
+  if (meter.inputMode === 'readings') {
+    return Math.max(0, meter.currentReading - meter.previousReading);
   }
-  lines.push(`📅 計算時間：${new Date().toLocaleDateString('zh-TW')} ${new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`);
-
-  return lines.join('\n');
+  return Math.max(0, meter.directKwh);
 }
 
-/**
- * User Example Preset Data (matches prompt exactly)
- */
-export function getPromptExampleData(): {
-  config: BillConfig;
-  residents: Resident[];
-  subMeters: SubMeter[];
-} {
-  const residents: Resident[] = [
-    { id: 'res-a', name: '成員 A', color: '#3b82f6', weight: 1 },
-    { id: 'res-b', name: '成員 B', color: '#10b981', weight: 1 },
-    { id: 'res-c', name: '成員 C', color: '#f59e0b', weight: 1 },
-  ];
-
-  const subMeters: SubMeter[] = [
-    {
-      id: 'meter-1',
-      name: '冷氣 1 (A & B 共有)',
-      inputMode: 'readings',
-      previousReading: 1000,
-      currentReading: 1100,
-      directKwh: 100,
-      assignedResidentIds: ['res-a', 'res-b'],
-    },
-    {
-      id: 'meter-2',
-      name: '冷氣 2 (C 專用)',
-      inputMode: 'readings',
-      previousReading: 500,
-      currentReading: 550,
-      directKwh: 50,
-      assignedResidentIds: ['res-c'],
-    },
-    {
-      id: 'meter-3',
-      name: '冷氣 3 (C 專用)',
-      inputMode: 'readings',
-      previousReading: 200,
-      currentReading: 225,
-      directKwh: 25,
-      assignedResidentIds: ['res-c'],
-    },
-  ];
-
-  const config: BillConfig = {
-    title: '2026年 12-1月 電費帳單',
-    year: 2026,
-    monthPeriod: '12-1月',
-    customNote: '',
-    totalAmount: 2000,
-    totalKwh: 500,
-    roundingMode: 'round',
-    autoBalanceDifference: true,
-  };
-
-  return { config, residents, subMeters };
+export function generateLineTextSummary(config: BillConfig, result: CalculationResult): string {
+  let text = `⚡ ${config.title}\n`;
+  text += `總金額: $${config.totalAmount} | 總用電: ${config.totalKwh}度\n`;
+  text += `--------------------\n`;
+  for (const rr of result.residentResults) {
+    text += `👤 ${rr.residentName}: $${rr.finalCost} (${rr.totalKwh.toFixed(1)}度)\n`;
+  }
+  text += `--------------------\n`;
+  text += `本期每度電費: $${result.unitPrice.toFixed(2)}`;
+  return text;
 }

@@ -10,6 +10,7 @@ import {
   saveHouseholdProfileToFirebase,
   subscribeToHouseholdProfileFromFirebase,
 } from './lib/firebase';
+import { Joyride, Step } from 'react-joyride';
 import { Header } from './components/Header';
 import { BillSummaryCard } from './components/BillSummaryCard';
 import { ResidentsManager } from './components/ResidentsManager';
@@ -131,6 +132,35 @@ export default function App() {
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [cloudSaveStatus, setCloudSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+  const [runTour, setRunTour] = useState(false);
+
+  const tourSteps: Step[] = [
+    {
+      target: '#btn-start-tour',
+      content: '歡迎使用電費分攤計算系統！只需幾個簡單步驟，就能自動分攤室友公用與獨立電費。',
+    },
+    {
+      target: '#section-bill-summary',
+      content: '首先，請在這裡輸入台電帳單的「總金額」與「總度數」，並選擇要計算的「帳單期別」。',
+    },
+    {
+      target: '#section-residents',
+      content: '接著新增室友名單！系統會跨月份記憶這些成員，不需每期重新輸入。',
+    },
+    {
+      target: '#section-submeters',
+      content: '如果有獨立冷氣，請在此新增並指派共用的室友。每期只需輸入「本期抄表度數」，前期度數會自動帶入！',
+    },
+    {
+      target: '#section-results',
+      content: '系統會自動結算每個人應繳的金額！點擊下方的「LINE 請款單」即可一鍵複製帳單明細傳給室友。',
+    },
+    {
+      target: '#btn-open-history',
+      content: '需要查看或儲存之前的帳單時，點擊這裡開啟「歷史紀錄」即可輕鬆管理所有月份的帳單。',
+    }
+  ];
 
   // Ref to track if initial cloud sync has been completed
   const hasInitializedFromCloud = useRef(false);
@@ -429,67 +459,6 @@ export default function App() {
     );
   };
 
-  const handleLoadExample = () => {
-    const data = getPromptExampleData();
-    setConfig(data.config);
-    setResidents(data.residents);
-    setSubMeters(data.subMeters);
-    updateMasterProfile(data.residents, data.subMeters);
-    setActiveNotice('已載入預設試算情境數值。');
-  };
-
-  const handleReset = () => {
-    if (window.confirm('確定要清空並重置所有輸入數值嗎？')) {
-      setConfig({
-        title: '2026年 1-3月 電費帳單',
-        year: 2026,
-        monthPeriod: '1-3月',
-        totalAmount: 0,
-        totalKwh: 0,
-        roundingMode: 'round',
-        autoBalanceDifference: true,
-      });
-      const defaultResidents: Resident[] = [
-        { id: 'res-1', name: '涵', color: '#3b82f6', weight: 1 },
-        { id: 'res-2', name: '宏', color: '#10b981', weight: 1 },
-        { id: 'res-3', name: '濰', color: '#f59e0b', weight: 1 },
-      ];
-      const defaultMeters: SubMeter[] = [
-        {
-          id: 'meter-1',
-          name: '客廳冷氣(涵 & 宏 共有)',
-          inputMode: 'readings',
-          previousReading: 100,
-          currentReading: 200,
-          directKwh: 0,
-          assignedResidentIds: ['res-1', 'res-2'],
-        },
-        {
-          id: 'meter-2',
-          name: '房間冷氣(涵 & 宏 共有)',
-          inputMode: 'readings',
-          previousReading: 50,
-          currentReading: 231,
-          directKwh: 0,
-          assignedResidentIds: ['res-1', 'res-2'],
-        },
-        {
-          id: 'meter-3',
-          name: '客廳冷氣(濰)',
-          inputMode: 'readings',
-          previousReading: 0,
-          currentReading: 95,
-          directKwh: 0,
-          assignedResidentIds: ['res-3'],
-        },
-      ];
-      setResidents(defaultResidents);
-      setSubMeters(defaultMeters);
-      updateMasterProfile(defaultResidents, defaultMeters);
-      setActiveNotice('已重置為標準住戶與冷氣配置。');
-    }
-  };
-
   const handleLoadHistoryRecord = (
     newConfig: BillConfig,
     newResidents: Resident[],
@@ -504,10 +473,32 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100/70 text-slate-900 font-sans antialiased pb-16">
+      <Joyride
+        steps={tourSteps}
+        run={runTour}
+        continuous
+        locale={{
+          back: '上一步',
+          close: '關閉',
+          last: '完成',
+          next: '下一步',
+          skip: '略過',
+        }}
+        options={{
+          primaryColor: '#6366f1',
+          zIndex: 1000,
+        }}
+        onEvent={(data) => {
+          const { status } = data;
+          if (status === 'finished' || status === 'skipped') {
+            setRunTour(false);
+          }
+        }}
+      />
+
       {/* Top Navbar Header */}
       <Header
-        onLoadExample={handleLoadExample}
-        onReset={handleReset}
+        onStartTour={() => setRunTour(true)}
         onOpenHistory={() => setIsHistoryOpen(true)}
         onOpenShare={() => setIsShareOpen(true)}
         onOpenGuide={() => {
@@ -574,23 +565,29 @@ export default function App() {
         )}
 
         {/* Section 1: Bill Summary Input */}
-        <BillSummaryCard
-          config={config}
-          onChange={setConfig}
-          onPeriodSwitch={handlePeriodSwitch}
-          unitPrice={result.unitPrice}
-        />
+        <div id="section-bill-summary">
+          <BillSummaryCard
+            config={config}
+            onChange={setConfig}
+            onPeriodSwitch={handlePeriodSwitch}
+            unitPrice={result.unitPrice}
+          />
+        </div>
 
         {/* Section 2: Residents Manager */}
-        <ResidentsManager residents={residents} onChange={handleResidentsChange} />
+        <div id="section-residents">
+          <ResidentsManager residents={residents} onChange={handleResidentsChange} />
+        </div>
 
         {/* Section 3: Sub-meters / AC Manager */}
-        <SubMetersManager
-          subMeters={subMeters}
-          residents={residents}
-          onChange={handleSubMetersChange}
-          unitPrice={result.unitPrice}
-        />
+        <div id="section-submeters">
+          <SubMetersManager
+            subMeters={subMeters}
+            residents={residents}
+            onChange={handleSubMetersChange}
+            unitPrice={result.unitPrice}
+          />
+        </div>
 
         {/* Section 4: Public Electricity Breakdown */}
         <PublicElectricityCard
@@ -601,11 +598,13 @@ export default function App() {
         />
 
         {/* Section 5: Individual Calculation Results */}
-        <ResultsBreakdown
-          result={result}
-          config={config}
-          onOpenShare={() => setIsShareOpen(true)}
-        />
+        <div id="section-results">
+          <ResultsBreakdown
+            result={result}
+            config={config}
+            onOpenShare={() => setIsShareOpen(true)}
+          />
+        </div>
 
         {/* Section 6: Taipower Rate Guide */}
         <div id="section-rate-guide">

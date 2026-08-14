@@ -1,17 +1,15 @@
 import React from 'react';
-import { Zap, RotateCcw, Sparkles, History, Share2, Info } from 'lucide-react';
+import { Zap, PlayCircle, History, Share2, Info } from 'lucide-react';
 
 interface HeaderProps {
-  onLoadExample: () => void;
-  onReset: () => void;
+  onStartTour: () => void;
   onOpenHistory: () => void;
   onOpenShare: () => void;
   onOpenGuide: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  onLoadExample,
-  onReset,
+  onStartTour,
   onOpenHistory,
   onOpenShare,
   onOpenGuide,
@@ -44,13 +42,13 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Action Buttons */}
           <div className="flex items-center flex-wrap gap-2">
             <button
-              onClick={onLoadExample}
-              id="btn-load-example"
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-500/30 transition-colors cursor-pointer"
-              title="載入 500度/$2000 3台冷氣 3人分攤的範例情境"
+              onClick={onStartTour}
+              id="btn-start-tour"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25 border border-indigo-500/30 transition-colors cursor-pointer"
+              title="功能介紹與使用教學"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>載入題目範例</span>
+              <PlayCircle className="w-3.5 h-3.5 text-indigo-400" />
+              <span>使用教學</span>
             </button>
 
             <button
@@ -79,16 +77,6 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Info className="w-3.5 h-3.5 text-slate-400" />
               <span>電價說明</span>
-            </button>
-
-            <button
-              onClick={onReset}
-              id="btn-reset-form"
-              className="inline-flex items-center space-x-1 px-2 py-1.5 text-xs font-medium rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
-              title="重置全部輸入"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">重置</span>
             </button>
           </div>
 
