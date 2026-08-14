@@ -22,7 +22,7 @@ export const ResultsBreakdown: React.FC<ResultsBreakdownProps> = ({
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 md:p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-5 border-b border-slate-100 gap-3">
+      <div id="tour-step-results" className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-5 border-b border-slate-100 gap-3">
         <div className="flex items-center space-x-2.5">
           <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-100">
             <DollarSign className="w-5 h-5" />

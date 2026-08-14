@@ -56,7 +56,7 @@ export const ResidentsManager: React.FC<ResidentsManagerProps> = ({
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 md:p-6">
-      <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+      <div id="tour-step-residents" className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
         <div className="flex items-center space-x-2.5">
           <div className="p-2 rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
             <Users className="w-5 h-5" />

@@ -137,28 +137,40 @@ export default function App() {
 
   const tourSteps: Step[] = [
     {
-      target: '#btn-start-tour',
+      target: 'body',
       content: '歡迎使用電費分攤計算系統！只需幾個簡單步驟，就能自動分攤室友公用與獨立電費。',
+      placement: 'center',
+      skipBeacon: true,
     },
     {
-      target: '#section-bill-summary',
+      target: '#tour-step-bill',
       content: '首先，請在這裡輸入台電帳單的「總金額」與「總度數」，並選擇要計算的「帳單期別」。',
+      placement: 'bottom',
+      skipBeacon: true,
     },
     {
-      target: '#section-residents',
+      target: '#tour-step-residents',
       content: '接著新增室友名單！系統會跨月份記憶這些成員，不需每期重新輸入。',
+      placement: 'bottom',
+      skipBeacon: true,
     },
     {
-      target: '#section-submeters',
+      target: '#tour-step-submeters',
       content: '如果有獨立冷氣，請在此新增並指派共用的室友。每期只需輸入「本期抄表度數」，前期度數會自動帶入！',
+      placement: 'bottom',
+      skipBeacon: true,
     },
     {
-      target: '#section-results',
+      target: '#tour-step-results',
       content: '系統會自動結算每個人應繳的金額！點擊下方的「LINE 請款單」即可一鍵複製帳單明細傳給室友。',
+      placement: 'bottom',
+      skipBeacon: true,
     },
     {
       target: '#btn-open-history',
       content: '需要查看或儲存之前的帳單時，點擊這裡開啟「歷史紀錄」即可輕鬆管理所有月份的帳單。',
+      placement: 'bottom',
+      skipBeacon: true,
     }
   ];
 
@@ -487,6 +499,20 @@ export default function App() {
         options={{
           primaryColor: '#6366f1',
           zIndex: 1000,
+          scrollOffset: 150,
+        }}
+        floatingOptions={{
+          shiftOptions: { padding: 16 },
+        }}
+        styles={{
+          tooltipContainer: {
+            textAlign: 'left',
+          },
+          tooltip: {
+            width: '300px',
+            maxWidth: '90vw',
+            borderRadius: '12px',
+          },
         }}
         onEvent={(data) => {
           const { status } = data;

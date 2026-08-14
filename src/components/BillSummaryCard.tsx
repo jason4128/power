@@ -46,7 +46,7 @@ export const BillSummaryCard: React.FC<BillSummaryCardProps> = ({
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 md:p-6 transition-all">
-      <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+      <div id="tour-step-bill" className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
         <div className="flex items-center space-x-2.5">
           <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-100">
             <Receipt className="w-5 h-5" />
