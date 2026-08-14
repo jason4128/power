@@ -106,30 +106,13 @@ export const BillSummaryCard: React.FC<BillSummaryCardProps> = ({
                 }
                 className="w-full px-3 py-2 text-sm font-bold border border-slate-200 rounded-xl bg-white text-slate-800 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 shadow-2xs cursor-pointer"
               >
-                <optgroup label="奇數雙月期別 (抄表月份 1,3,5,7,9,11月)">
-                  <option value="12-1月">12-1 月帳單 (十二月~一月)</option>
-                  <option value="1-3月">1-3 月帳單 (一月~三月)</option>
-                  <option value="3-5月">3-5 月帳單 (三月~五月)</option>
-                  <option value="5-7月">5-7 月帳單 (五月~七月)</option>
-                  <option value="7-9月">7-9 月帳單 (七月~九月)</option>
-                  <option value="9-11月">9-11 月帳單 (九月~十一月)</option>
-                  <option value="11-1月">11-1 月帳單 (十一月~一月)</option>
-                </optgroup>
-                <optgroup label="偶數雙月期別 (抄表月份 2,4,6,8,10,12月)">
-                  <option value="1-2月">1-2 月帳單 (一月~二月)</option>
-                  <option value="3-4月">3-4 月帳單 (三月~四月)</option>
-                  <option value="5-6月">5-6 月帳單 (五月~六月)</option>
-                  <option value="7-8月">7-8 月帳單 (七月~八月)</option>
-                  <option value="9-10月">9-10 月帳單 (九月~十月)</option>
-                  <option value="11-12月">11-12 月帳單 (十一月~十二月)</option>
-                </optgroup>
-                <optgroup label="單月計費">
-                  {Array.from({ length: 12 }, (_, i) => `${i + 1}月`).map((m) => (
-                    <option key={m} value={m}>
-                      {m} 帳單
-                    </option>
-                  ))}
-                </optgroup>
+                <option value="12-1月">12-1 月帳單 (十二月~一月)</option>
+                <option value="1-3月">1-3 月帳單 (一月~三月)</option>
+                <option value="3-5月">3-5 月帳單 (三月~五月)</option>
+                <option value="5-7月">5-7 月帳單 (五月~七月)</option>
+                <option value="7-9月">7-9 月帳單 (七月~九月)</option>
+                <option value="9-11月">9-11 月帳單 (九月~十一月)</option>
+                <option value="11-1月">11-1 月帳單 (十一月~一月)</option>
               </select>
             </div>
 

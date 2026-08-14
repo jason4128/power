@@ -74,3 +74,16 @@ export interface HistoryRecord {
   subMeters: SubMeter[];
   result: CalculationResult;
 }
+
+export interface MasterSubMeterDef {
+  id: string;
+  name: string;
+  assignedResidentIds: string[];
+  inputMode?: MeterInputMode;
+}
+
+export interface HouseholdProfile {
+  residents: Resident[];
+  meters: MasterSubMeterDef[];
+  updatedAt?: string;
+}

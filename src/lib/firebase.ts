@@ -9,7 +9,7 @@ import {
   query,
   orderBy,
 } from 'firebase/firestore';
-import { HistoryRecord } from '../types';
+import { HistoryRecord, HouseholdProfile } from '../types';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
@@ -19,6 +19,48 @@ export const db = getFirestore(
 );
 
 const BILLS_COLLECTION = 'electricity_bills';
+const SETTINGS_COLLECTION = 'app_settings';
+const PROFILE_DOC_ID = 'household_master_profile';
+
+/**
+ * Save Household Master Profile (Members & Air Conditioner Definitions) to Firebase
+ */
+export async function saveHouseholdProfileToFirebase(profile: HouseholdProfile): Promise<void> {
+  const docRef = doc(db, SETTINGS_COLLECTION, PROFILE_DOC_ID);
+  const dataToSave = {
+    ...profile,
+    updatedAt: new Date().toISOString(),
+  };
+  await setDoc(docRef, dataToSave, { merge: true });
+}
+
+/**
+ * Subscribe to Household Master Profile in real-time from Firebase
+ */
+export function subscribeToHouseholdProfileFromFirebase(
+  callback: (profile: HouseholdProfile | null) => void
+): () => void {
+  const docRef = doc(db, SETTINGS_COLLECTION, PROFILE_DOC_ID);
+  const unsubscribe = onSnapshot(
+    docRef,
+    (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        callback({
+          residents: data.residents || [],
+          meters: data.meters || [],
+          updatedAt: data.updatedAt,
+        });
+      } else {
+        callback(null);
+      }
+    },
+    (error) => {
+      console.error('Error fetching household profile from Firebase:', error);
+    }
+  );
+  return unsubscribe;
+}
 
 /**
  * Save an electricity bill record to Firebase Firestore
